@@ -5,8 +5,8 @@ import sys
 
 from aiogram.types import BotCommand
 
-from bot.handlera.main_handler import CustomMiddleware
-from bot.handlera import *
+
+from bot.handlers import *
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -28,7 +28,6 @@ async def set_bot_commands(bot: Bot):
 async def main() -> None:
     i18n = I18n(path='locales', default_locale='uz', domain='messages')
     dp.update.outer_middleware(FSMI18nMiddleware(i18n))
-    dp.message.outer_middleware(CustomMiddleware())
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     await set_bot_commands(bot)
     await dp.start_polling(bot)
