@@ -37,9 +37,11 @@ class AbstractClass:
         await cls.commit()
 
     @classmethod
-    async def get(cls,filter_, id_):
+    async def get(cls,filter_, id_,all_=False):
         query = select(cls).where(filter_ == id_)
         objects = await db.execute(query)
+        if all_:
+            objects = objects.all()
         object_ = objects.first()
         if object_:
             return object_[0]
@@ -64,14 +66,6 @@ class AbstractClass:
             result.append(i[0])
         return result
 
-    @classmethod
-    async def gets(cls, filter_column, filter_value, *columns):
-        query = select(*columns).where(filter_column == filter_value)
-        result = await db.execute(query)
-        rows = result.all()
-        if not rows:
-            return 'Error'
-        return [row[0] for row in rows]
 
 
 tz = "TIMEZONE('Asia/Tashkent', NOW())"
