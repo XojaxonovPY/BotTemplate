@@ -14,11 +14,11 @@ language=Router()
 async def language_user(message: Message, state: FSMContext):
     text = ['🇺🇿 Uzb','🇷🇺 Rus', _('◀️ Orqaga')]
     markup = await reply_button_builder(text, (3, 1))
-    await state.set_state(States.language)
+    await state.set_state(States.lang)
     await message.answer(text=_('Tilni tanlang:'), reply_markup=markup)
 
 
-@language.message(States.language)
+@language.message(States.lang)
 async def language_handler(message: Message, state: FSMContext, i18n):
     map_lang = {
         '🇺🇿 Uzb': 'uz',

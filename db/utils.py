@@ -32,16 +32,19 @@ class AbstractClass:
                  .values(**kwargs)
                  .execution_options(synchronize_session="fetch")
                  )
-
-        await db.execute(query)
+        result = await db.execute(query)
         await cls.commit()
+        return result.fetchone()
 
     @classmethod
-    async def get(cls,filter_, id_,all_=False):
+    async def get(cls, filter_, id_, all_=False):
         query = select(cls).where(filter_ == id_)
         objects = await db.execute(query)
+        result = []
         if all_:
-            objects = objects.all()
+            for i in objects.all():
+                result.append(i[0])
+            return result
         object_ = objects.first()
         if object_:
             return object_[0]
@@ -65,6 +68,20 @@ class AbstractClass:
         for i in objects.all():
             result.append(i[0])
         return result
+
+    @classmethod
+    async def query(cls, query, all_=False):
+        objects = await db.execute(query)
+        result = []
+        if all_:
+            for i in objects.all():
+                result.append(i[0])
+            return result
+        object_ = objects.first()
+        if object_:
+            return object_[0]
+        else:
+            return []
 
 
 
