@@ -69,10 +69,10 @@ class Manager:
                 cls._handle_db_error(e)
 
     @classmethod
-    async def update(cls: Type[T], id_: int, **kwargs):
+    async def update(cls: Type[T], filter_: dict[Any, Any], **kwargs):
         async with AsyncSessionLocal() as session:
             try:
-                query: Update = update(cls).filter_by(id=id_).values(**kwargs).returning(cls)
+                query: Update = update(cls).filter_by(**filter_).values(**kwargs).returning(cls)
                 result: Result[Any] = await session.execute(query)
                 await session.commit()
                 return result.scalar_one_or_none()
@@ -81,10 +81,10 @@ class Manager:
                 cls._handle_db_error(e)
 
     @classmethod
-    async def delete(cls: Type[T], id_: int):
+    async def delete(cls: Type[T], filter_: dict[Any, Any]):
         async with AsyncSessionLocal() as session:
             try:
-                query: Delete = delete(cls).filter_by(id=id_)
+                query: Delete = delete(cls).filter_by(**filter_)
                 await session.execute(query)
                 await session.commit()
                 return True
@@ -128,11 +128,14 @@ class Manager:
 
     @staticmethod
     def _handle_db_error(e: Exception):
-        if isinstance(e, IntegrityError):
-            raise logger.error(msg=f"Ma'lumot nusxalangan: {str(e.orig)}")
-        if isinstance(e, DataError):
-            raise logger.error(msg=f"Noto'g'ri ma'lumot: {str(e.orig)}")
-        raise logger.error(msg=f"Baza xatosi: {str(e)}")
+        try:
+            if isinstance(e, IntegrityError):
+                raise logger.error(msg=f"Ma'lumot nusxalangan: {str(e.orig)}")
+            if isinstance(e, DataError):
+                raise logger.error(msg=f"Noto'g'ri ma'lumot: {str(e.orig)}")
+            raise logger.error(msg=f"Baza xatosi: {str(e)}")
+        except Exception as e:
+            print(e)
 
 
 tz: str = "CURRENT_TIMESTAMP"
