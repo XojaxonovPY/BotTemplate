@@ -16,7 +16,7 @@ async def command_start_handler(message: Message):
     }
     await User.check_user(user_data)
     buttons: list[str] = ['👤 Current User', '👥 Users']
-    markup: ReplyKeyboardMarkup = await reply_button_builder(buttons, (2,))
+    markup: ReplyKeyboardMarkup = reply_button_builder(buttons, (2,))
     await message.answer(text='Welcome to bot', reply_markup=markup)
 
 
