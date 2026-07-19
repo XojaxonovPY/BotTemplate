@@ -28,6 +28,6 @@ async def current_user_handler(message: Message):
 
 @router.message(F.text == '👥 Users')
 async def current_user_handler(message: Message):
-    user_obj: list[User] = await User.all_()
+    user_obj: list[User] = await User.get_all()
     for user in user_obj:
         await message.answer(text=f'Salom {user.username}')

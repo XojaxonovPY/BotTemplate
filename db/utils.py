@@ -1,15 +1,15 @@
-import logging
 from datetime import datetime
 from typing import TypeVar, Type, Any
 
-from sqlalchemy import update, select, delete, DateTime, text, Update, Select, Delete, TextClause, Result
+from sqlalchemy import DateTime, Update, Select, Delete, TextClause, Result, Insert
+from sqlalchemy import insert, update, select, delete, text
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, DataError
 from sqlalchemy.orm import DeclarativeBase, declared_attr, Mapped, mapped_column
 
+from db.exceptions import DatabaseException, logger
 from db.session import AsyncSessionLocal
 
 T = TypeVar("T", bound="Model")
-logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -22,20 +22,19 @@ class Manager:
     async def create(cls: Type[T], **kwargs):
         async with AsyncSessionLocal() as session:
             try:
-                value = cls(**kwargs)
-                session.add(value)
+                stmt: Insert = insert(cls).values(**kwargs).returning(cls)
+                result = await session.execute(stmt)
                 await session.commit()
-                await session.refresh(value)
-                return value
+                return result
             except (IntegrityError, DataError, SQLAlchemyError) as e:
                 await session.rollback()
                 cls._handle_db_error(e)
 
     @classmethod
-    async def all_(cls: Type[T], order_fields: list[str] = None):
+    async def get_all(cls: Type[T], order_fields: list[str] = None, limit: int = 100, offset: int = 0):
         async with AsyncSessionLocal() as session:
             try:
-                query: Select[Any] = select(cls)
+                query: Select[Any] = select(cls).limit(limit).offset(offset)
                 if order_fields:
                     query = query.order_by(*order_fields)
                 results: Result[Any] = await session.execute(query)
@@ -56,10 +55,10 @@ class Manager:
                 cls._handle_db_error(e)
 
     @classmethod
-    async def filter_(cls: Type[T], *filter_, order_by_fields: list[str] = None):
+    async def get_filter(cls: Type[T], *filter_, order_by_fields: list[str] = None, limit: int = 100, offset: int = 0):
         async with AsyncSessionLocal() as session:
             try:
-                query: Select[Any] = select(cls).where(*filter_)
+                query: Select[Any] = select(cls).where(*filter_).limit(limit).offset(offset)
                 if order_by_fields:
                     query = query.order_by(*order_by_fields)
                 result: Result[Any] = await session.execute(query)
@@ -93,13 +92,11 @@ class Manager:
                 cls._handle_db_error(e)
 
     @classmethod
-    async def query(cls: Type[T], query, all_: bool = False):
+    async def query(cls: Type[T], query):
         async with AsyncSessionLocal() as session:
             try:
                 result: Result[Any] = await session.execute(query)
-                if all_:
-                    return result.scalars().all()
-                return result.scalars().first()
+                return result
             except(SQLAlchemyError) as e:
                 await session.rollback()
                 cls._handle_db_error(e)
@@ -110,7 +107,7 @@ class Manager:
             try:
                 stmt: TextClause = text(query)
                 result: Result[Any] = await session.execute(stmt, params)
-                return result.mappings().all()
+                return result
             except(SQLAlchemyError) as e:
                 await session.rollback()
                 Manager._handle_db_error(e)
@@ -128,14 +125,18 @@ class Manager:
 
     @staticmethod
     def _handle_db_error(e: Exception):
-        try:
-            if isinstance(e, IntegrityError):
-                raise logger.error(msg=f"Ma'lumot nusxalangan: {str(e.orig)}")
-            if isinstance(e, DataError):
-                raise logger.error(msg=f"Noto'g'ri ma'lumot: {str(e.orig)}")
-            raise logger.error(msg=f"Baza xatosi: {str(e)}")
-        except Exception as e:
-            print(e)
+        if isinstance(e, IntegrityError):
+            orig_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+            logger.error(f"Ma'lumot nusxalangan/Xatolik: {orig_msg}")
+            raise DatabaseException(f"Ma'lumotlar yaxlitligi buzildi: {orig_msg}", original_error=e)
+
+        if isinstance(e, DataError):
+            orig_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+            logger.error(f"Noto'g'ri ma'lumot formati: {orig_msg}")
+            raise DatabaseException(f"Ma'lumot formatida xato: {orig_msg}", original_error=e)
+
+        logger.error(f"Kutilmagan baza xatosi: {str(e)}", exc_info=True)
+        raise DatabaseException(f"Baza xatosi: {str(e)}", original_error=e)
 
 
 tz: str = "CURRENT_TIMESTAMP"
