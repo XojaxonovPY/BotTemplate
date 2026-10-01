@@ -2,34 +2,50 @@ import asyncio
 import logging
 import sys
 
-import bcrypt
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 
 from bot.handlers import dp
-from utils.env_data import BotConfig
-
-# from aiogram.utils.i18n import I18n, FSMI18nMiddleware
-
-TOKEN = BotConfig.TOKEN
+from core.env_data import BotConfig
+from db.engine import engine
 
 
-async def set_bot_commands(bot: Bot):
-    commands = [BotCommand(command="/start", description="Starting bot."), ]
+async def on_startup(bot: Bot) -> None:
+    """Bot ishga tushganda bajariladigan amallar."""
+    commands = [
+        BotCommand(command="start", description="Botni ishga tushirish"),
+    ]
     await bot.set_my_commands(commands=commands)
+    logging.info("Bot buyruqlari muvaffaqiyatli o'rnatildi.")
 
 
 async def main() -> None:
-    # i18n = I18n(path='locales', default_locale='uz', domain='messages')
-    # dp.update.outer_middleware(FSMI18nMiddleware(i18n))
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    await set_bot_commands(bot)
-    await dp.start_polling(bot)
+    bot = Bot(
+        token=BotConfig.TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+    )
+
+    dp.startup.register(on_startup)
+
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        logging.info("The bot is starting up in polling mode...")
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+        await engine.dispose()
+        logging.info("The bot session has closed.")
 
 
 if __name__ == "__main__":
-    print(bcrypt.hashpw("3".encode(), salt=bcrypt.gensalt()).decode())
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(main())
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
+        stream=sys.stdout,
+    )
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("The bot has been stopped.")
